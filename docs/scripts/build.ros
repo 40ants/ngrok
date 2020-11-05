@@ -57,6 +57,10 @@ behaviour could be overriden by keyword argument ``:raise t``."
 (defun build-docs ()
   (log:info "Building documentation in ./docs/")
 
+  ;; To make pages for symbols from docutils
+  ;; we'll generate docs for it first
+  (coo:document-system "docutils" :base-path "docs/build/")
+  ;; and then for our example, to overwrite the index.html
   (coo:document-system "example" :base-path "docs/build/")
   
   (uiop:with-output-file (s "docs/build/.nojekyll" :if-exists :overwrite)
