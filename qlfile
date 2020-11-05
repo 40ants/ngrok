@@ -1,0 +1,3 @@
+dist ultralisp http://dist.ultralisp.org/
+
+github coo svetlyak40wt/coo :branch package-inferred-support
