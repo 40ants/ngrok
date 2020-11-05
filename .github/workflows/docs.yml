@@ -12,8 +12,6 @@ on:
 jobs:
   build_docs:
     runs-on: ubuntu-latest
-    env:
-      PIPENV_PIPFILE: docs/scripts/Pipfile
     steps:
       - uses: actions/checkout@v1
       - name: Show env
@@ -24,15 +22,6 @@ jobs:
         run: |
           curl -L https://raw.githubusercontent.com/roswell/roswell/master/scripts/install-for-ci.sh | sh
           echo /home/runner/.roswell/bin >> $GITHUB_PATH
-      - name: Install Pythonn 3.7
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes software-properties-common
-          sudo add-apt-repository --yes ppa:deadsnakes/ppa
-          sudo apt-get install python3.7
-      - name: Check Python Version
-        run: |
-          python3.7 --version
       - name: Check CL Version
         run: |
           ros install 40ants/cl-info
