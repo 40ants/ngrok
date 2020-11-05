@@ -29,6 +29,10 @@ Pros
   for writing large interlinked documents.
 * extensions can be written in Common Lisp.
 * cross-referencing works almost the same way like with cldomain_.
+* it is very easy to install Coo and to build documentation for any Lisp system
+  having the docstrings.
+* docstrings can be written in reStructured_ text format and reference other parts
+  of the documentation.
 
 
 Cons
