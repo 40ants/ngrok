@@ -6,7 +6,3 @@
  (:class qlot/source/dist:source-dist
   :initargs (:distribution "http://dist.ultralisp.org/" :%version :latest)
   :version "20201105181508"))
-("coo" .
- (:class qlot/source/github:source-github
-  :initargs (:repos "svetlyak40wt/coo" :ref nil :branch "package-inferred-support" :tag nil)
-  :version "github-ee2b1f90592b947b01f7d4f5440cb4a7"))
