@@ -176,6 +176,9 @@ It contains only one function definition:
     
     Internally it calls [`example/utils:do-the-job`][7fd6]
     to do the real job.
+    
+    Note, that the link above is broken, but Coo does not warn us when building the docs.
+    Sphinx issues a warning in such case.
 
 What is interesting is that we can continue writing code for the section.
 Interleaving blocks of text with references to the different Lisp entities.

@@ -159,5 +159,10 @@ will collect external symbols and generate a MGL-PAX:SECTION object for them.
 (defun build-docs ()
   (mgl-pax:update-asdf-system-readmes @index :example)
   
-  (mgl-pax:update-asdf-system-html-docs @index :example
-                                        :target-dir "docs/build/"))
+  (mgl-pax:update-asdf-system-html-docs
+   @index :example
+   :target-dir "docs/build/"
+   :pages `((:objects (,example-docs:@index)
+             :source-uri-fn ,(pax:make-github-source-uri-fn
+                              :example
+                              "https://github.com/cl-doc-systems/mgl-pax")))))
