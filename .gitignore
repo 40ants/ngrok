@@ -1,2 +1,5 @@
 /docs/build/
 /.qlot/
+ngrok
+.ngrok.log
+ngrok.zip

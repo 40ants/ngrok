@@ -1,34 +1,45 @@
-(defpackage #:example/utils
+(defpackage #:ngrok/utils
   (:use #:cl)
-  (:import-from #:mgl-pax
-                #:defsection)
-  (:export #:do-the-job)
-  (:documentation "The utils"))
-(in-package example/utils)
+  (:export #:run))
+(in-package ngrok/utils)
 
 
-(defsection @utils (:title "EXAMPLE/UTILS Package")
-  (do-the-job function))
+(define-condition unable-to-proceed (simple-error)
+  ((message :initarg :message
+            :reader get-message))
+  (:report (lambda (condition stream)
+             (format stream (get-message condition)))))
 
 
-(defun concat (first second)
-  "This function is not exported and should not be showed in the API reference."
-  (format nil "~A ~A" first second))
+(define-condition subprocess-error-with-output (uiop::subprocess-error)
+  ((stdout :initarg :stdout :reader subprocess-error-stdout)
+   (stderr :initarg :stderr :reader subprocess-error-stderr))
+  (:report (lambda (condition stream)
+             (format stream "Subprocess ~@[~S~% ~]~@[with command ~S~% ~]exited with error~@[ code ~D ~]~@[~%STDOUT:~% ~S~]~@[~%STDERR:~% ~S~]"
+                     (uiop:subprocess-error-process condition)
+                     (uiop:subprocess-error-command condition)
+                     (uiop:subprocess-error-code condition)
+                     (subprocess-error-stdout condition)
+                     (subprocess-error-stderr condition)))))
 
 
-(defun do-the-job (first second)
-  "The function does the job.
+(defun run (command &key (raise t))
+  "Runs command and returns it's stdout stderr and code.
 
-   It **concatenates** first and second arguments
-   calling internal function concat.
-
-   On this multiline we'll check how does documentation
-   system processes docstrings.
-
-   By the way, pay attention at the second paragraph where
-   I've used [Markdown](https://www.markdownguide.org/basic-syntax/)
-   format to make the word \"concatenates\" bold.
-
-   Also, we can reference some parts of the documentation.
-   Read more about cross referencing in the EXAMPLE-DOCS:@HANDWRITTEN chapter."
-  (concat first second))
+If there was an error, raises subprocess-error-with-output, but this
+behaviour could be overriden by keyword argument ``:raise t``."
+  
+  (multiple-value-bind (stdout stderr code)
+      (uiop:run-program command
+                        :output '(:string :stripped t)
+                        :error-output '(:string :stripped t)
+                        :ignore-error-status t)
+    
+    (when (and raise
+               (not (eql code 0)))
+      (error 'subprocess-error-with-output
+             :stdout stdout
+             :stderr stderr
+             :code code
+             :command command))
+    (values stdout stderr code)))
