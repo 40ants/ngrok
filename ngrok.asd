@@ -4,6 +4,5 @@
   :license "Unlicense"
   :pathname "src"
   :description "A wrapper around ngrok to help debug remote Lisp servers."
-  :depends-on ("mgl-pax-minimal"
-               "trivial-features"
+  :depends-on ("trivial-features"
                "ngrok/setup"))

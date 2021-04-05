@@ -1,4 +1,1 @@
 dist ultralisp http://dist.ultralisp.org/
-
-# We need this unless pull with mgl-pax-minimal will be merged
-github mgl-pax svetlyak40wt/mgl-pax

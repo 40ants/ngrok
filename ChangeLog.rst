@@ -2,7 +2,12 @@
 ChangeLog
 =========
 
-0.1
----
+0.2 (2021-04-05)
+================
 
-Initial version of the example. Only foo function was described.
+Removed MGL-PAX documentation template.
+
+0.1
+===
+
+Initial version.
