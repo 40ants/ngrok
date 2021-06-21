@@ -2,7 +2,8 @@
   (:use #:cl)
   (:nicknames #:ngrok/setup)
   (:import-from #:ngrok/utils
-                #:run)
+                #:run
+                #:terminate-running-command)
   (:import-from #:log4cl)
   (:import-from #:bordeaux-threads)
   (:import-from #:jonathan)
@@ -124,10 +125,8 @@
 
 
 (defun stop ()
-  ;; TODO: this function does not kill ngrok
-  ;; we need to find a good way to kill child process.
   (when *thread*
     (when (bt:thread-alive-p *thread*)
-      (bt:destroy-thread *thread*))
+      (bt:interrupt-thread *thread* #'terminate-running-command))
     (setf *thread* nil
           *port* nil)))
