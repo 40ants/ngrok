@@ -104,10 +104,30 @@
      
      (setf *thread*
            (bt:make-thread (lambda ()
-                             (run (format nil "./ngrok tcp ~A --log \"~A\" --log-format json --region ~A"
-                                          port
-                                          log
-                                          region)))
+                             ;; RUN delegates to UIOP:LAUNCH-PROGRAM.
+                             ;;
+                             ;; UIOP:LAUNCH-PROGRAM, as it turns out, behaves
+                             ;; differently if the specified command is a string
+                             ;; or a list of arguments: if a string, it would
+                             ;; run the command via `sh -c $command`,
+                             ;; effectively running the specified command in a
+                             ;; child process; in case of a list instead, the
+                             ;; command will be executed as-is, i.e. without
+                             ;; creating a child process.
+                             ;;
+                             ;; Why does this matter? Because we want to be
+                             ;; able to interrupt this long-running process,
+                             ;; and in order for NGROK:STOP first, and then
+                             ;; UIOP:TERMINATE-PROCESS, to do that (i.e.
+                             ;; interrupt the running process) they need to get
+                             ;; ahold of the actual Ngrok process, and not the
+                             ;; parent shell that spawend it.
+                             ;;
+                             ;; Hence, we specify the Ngrok command to run as
+                             ;; a list.
+                             (run (list "./ngrok" "tcp" (write-to-string port)
+                                        "--log" log "--log-format" "json"
+                                        "--region" region)))
                            :name (format nil "Ngrok on port ~A"
                                          port))
            *port* port)
