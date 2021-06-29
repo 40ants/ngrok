@@ -53,7 +53,7 @@
       (format nil "./ngrok authtoken ~A" token)))))
 
 
-(defun find-url-in-log (log-filename)
+(defun find-tunnel-url-in-log (log-filename)
   (when (probe-file log-filename)
     (loop for line in (uiop:read-file-lines log-filename)
           for parsed = (jonathan:parse line)
@@ -64,9 +64,26 @@
             do (return (getf parsed :|url|)))))
 
 
+(defun ngrok-webserver-port (log)
+  "Returns the port number Ngrok Webserver is currently listening to, or NIL"
+  (let ((url (find-ngrok-webserver-url-in-log log)))
+    (when url
+      (parse-integer (subseq url (1+ (position #\: url :from-end t)))))))
+
+
+(defun find-ngrok-webserver-url-in-log (log-filename)
+  (when (probe-file log-filename)
+    (loop for line in (uiop:read-file-lines log-filename)
+          for parsed = (jonathan:parse line)
+          for msg = (getf parsed :|msg|)
+          when (and msg
+                    (string-equal msg
+                                  "starting web service"))
+            do (return (getf parsed :|addr|)))))
+
 (defun wait-for-connection (log-filename &key (timeout *default-timeout*))
   (loop with started-at = (get-universal-time)
-        for url = (find-url-in-log log-filename)
+        for url = (find-tunnel-url-in-log log-filename)
         do (cond
              (url
               (return-from wait-for-connection url))
@@ -85,7 +102,10 @@
                      (log (or (uiop:getenv "NGROK_LOG")
                               ".ngrok.log"))
                      (timeout *default-timeout*))
-  "Returns Ngrok tunnel's URL or NIL."
+  "Returns Ngrok tunnel's URL or NIL.
+
+  On success, the PORT number the Ngrok's Web server wound up listening too is
+  returned as well, as a second value."
   
   (unless auth-token
     (error "Auth token should be provided as a parameter or as NGROK_AUTH_TOKEN env variable."))
@@ -136,7 +156,7 @@
        (cond
          (url
           (log:info "Tunnnel established! Connect to the ~A" url)
-          (values url))
+          (values url (ngrok-webserver-port log)))
          (t
           (log:error "Unable to establish tunnel in ~A seconds. Closing connection."
                      timeout)
