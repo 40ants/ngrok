@@ -2,7 +2,8 @@
   (:use #:cl)
   (:nicknames #:ngrok/setup)
   (:import-from #:ngrok/utils
-                #:run)
+                #:run
+                #:terminate-running-command)
   (:import-from #:log4cl)
   (:import-from #:bordeaux-threads)
   (:import-from #:jonathan)
@@ -52,7 +53,7 @@
       (format nil "./ngrok authtoken ~A" token)))))
 
 
-(defun find-url-in-log (log-filename)
+(defun find-tunnel-url-in-log (log-filename)
   (when (probe-file log-filename)
     (loop for line in (uiop:read-file-lines log-filename)
           for parsed = (jonathan:parse line)
@@ -63,9 +64,26 @@
             do (return (getf parsed :|url|)))))
 
 
+(defun ngrok-webserver-port (log)
+  "Returns the port number Ngrok Webserver is currently listening to, or NIL"
+  (let ((url (find-ngrok-webserver-url-in-log log)))
+    (when url
+      (parse-integer (subseq url (1+ (position #\: url :from-end t)))))))
+
+
+(defun find-ngrok-webserver-url-in-log (log-filename)
+  (when (probe-file log-filename)
+    (loop for line in (uiop:read-file-lines log-filename)
+          for parsed = (jonathan:parse line)
+          for msg = (getf parsed :|msg|)
+          when (and msg
+                    (string-equal msg
+                                  "starting web service"))
+            do (return (getf parsed :|addr|)))))
+
 (defun wait-for-connection (log-filename &key (timeout *default-timeout*))
   (loop with started-at = (get-universal-time)
-        for url = (find-url-in-log log-filename)
+        for url = (find-tunnel-url-in-log log-filename)
         do (cond
              (url
               (return-from wait-for-connection url))
@@ -84,7 +102,10 @@
                      (log (or (uiop:getenv "NGROK_LOG")
                               ".ngrok.log"))
                      (timeout *default-timeout*))
-  "Returns Ngrok tunnel's URL or NIL."
+  "Returns Ngrok tunnel's URL or NIL.
+
+  On success, the PORT number the Ngrok's Web server wound up listening too is
+  returned as well, as a second value."
   
   (unless auth-token
     (error "Auth token should be provided as a parameter or as NGROK_AUTH_TOKEN env variable."))
@@ -103,10 +124,30 @@
      
      (setf *thread*
            (bt:make-thread (lambda ()
-                             (run (format nil "./ngrok tcp ~A --log \"~A\" --log-format json --region ~A"
-                                          port
-                                          log
-                                          region)))
+                             ;; RUN delegates to UIOP:LAUNCH-PROGRAM.
+                             ;;
+                             ;; UIOP:LAUNCH-PROGRAM, as it turns out, behaves
+                             ;; differently if the specified command is a string
+                             ;; or a list of arguments: if a string, it would
+                             ;; run the command via `sh -c $command`,
+                             ;; effectively running the specified command in a
+                             ;; child process; in case of a list instead, the
+                             ;; command will be executed as-is, i.e. without
+                             ;; creating a child process.
+                             ;;
+                             ;; Why does this matter? Because we want to be
+                             ;; able to interrupt this long-running process,
+                             ;; and in order for NGROK:STOP first, and then
+                             ;; UIOP:TERMINATE-PROCESS, to do that (i.e.
+                             ;; interrupt the running process) they need to get
+                             ;; ahold of the actual Ngrok process, and not the
+                             ;; parent shell that spawend it.
+                             ;;
+                             ;; Hence, we specify the Ngrok command to run as
+                             ;; a list.
+                             (run (list "./ngrok" "tcp" (write-to-string port)
+                                        "--log" log "--log-format" "json"
+                                        "--region" region)))
                            :name (format nil "Ngrok on port ~A"
                                          port))
            *port* port)
@@ -115,7 +156,7 @@
        (cond
          (url
           (log:info "Tunnnel established! Connect to the ~A" url)
-          (values url))
+          (values url (ngrok-webserver-port log)))
          (t
           (log:error "Unable to establish tunnel in ~A seconds. Closing connection."
                      timeout)
@@ -124,10 +165,8 @@
 
 
 (defun stop ()
-  ;; TODO: this function does not kill ngrok
-  ;; we need to find a good way to kill child process.
   (when *thread*
     (when (bt:thread-alive-p *thread*)
-      (bt:destroy-thread *thread*))
+      (bt:interrupt-thread *thread* #'terminate-running-command))
     (setf *thread* nil
           *port* nil)))

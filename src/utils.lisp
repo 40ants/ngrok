@@ -1,6 +1,8 @@
 (defpackage #:ngrok/utils
   (:use #:cl)
-  (:export #:run))
+  (:export #:subprocess-error-with-output
+           #:run
+           #:terminate-running-command))
 (in-package ngrok/utils)
 
 
@@ -27,19 +29,43 @@
   "Runs command and returns it's stdout stderr and code.
 
 If there was an error, raises subprocess-error-with-output, but this
-behaviour could be overriden by keyword argument ``:raise t``."
-  
-  (multiple-value-bind (stdout stderr code)
-      (uiop:run-program command
-                        :output '(:string :stripped t)
-                        :error-output '(:string :stripped t)
-                        :ignore-error-status t)
-    
-    (when (and raise
-               (not (eql code 0)))
-      (error 'subprocess-error-with-output
-             :stdout stdout
-             :stderr stderr
-             :code code
-             :command command))
-    (values stdout stderr code)))
+behaviour can be overriden by passing NIL to the keyword argument ``:raise``.
+
+Establish a terminate-process restart which, once invoked, will try and
+terminate the running command."
+  (let (proc-info)
+    (labels ((read-all-from-stream (stream)
+               (loop :for line := (read-line stream nil nil)
+                     :while line :collect line :into lines
+                     :finally (return (format nil "~{~A~^~&~}" lines))))
+             (run-command ()
+               (setf proc-info (uiop:launch-program command
+                                                    :output :stream
+                                                    :error-output :stream
+                                                    :ignore-error-status t))
+               (let ((code (uiop:wait-process proc-info))
+                     (stdout (read-all-from-stream (uiop:process-info-output proc-info)))
+                     (stderr (read-all-from-stream (uiop:process-info-error-output proc-info))))
+                 (when (and raise
+                            (not (eql code 0)))
+                   (error 'subprocess-error-with-output
+                          :stdout stdout
+                          :stderr stderr
+                          :code code
+                          :command command))
+                 (values stdout stderr code))))
+      (restart-case (run-command)
+        (terminate-process ()
+          :report "Terminate process"
+          (when proc-info
+            (uiop:terminate-process proc-info)))))))
+
+(defun terminate-running-command ()
+  "Terminates whichever command is found running in the current execution context.
+
+  If no command is found running, an error is signaled."
+  (let ((restart (find 'terminate-process (compute-restarts)
+                       :key #'restart-name)))
+    (if restart
+        (invoke-restart restart)
+        (error "Cannot find TERMINATE-PROCESS restart to invoke"))))
